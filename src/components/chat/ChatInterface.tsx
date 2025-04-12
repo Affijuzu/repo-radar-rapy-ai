@@ -4,8 +4,9 @@ import ChatWindow from './ChatWindow';
 import ChatHistory from './ChatHistory';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
-import { PanelLeft, PanelLeftClose } from 'lucide-react';
+import { PanelLeft, PanelLeftClose, Settings } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const ChatInterface: React.FC = () => {
   const isMobile = useIsMobile();
@@ -44,6 +45,13 @@ const ChatInterface: React.FC = () => {
             <PanelLeft className="h-5 w-5" />
           </Button>
         )}
+        
+        <Link to="/settings" className="absolute top-2 right-2 z-10">
+          <Button variant="ghost" size="icon">
+            <Settings className="h-5 w-5" />
+          </Button>
+        </Link>
+        
         <ChatWindow />
       </div>
     </div>
