@@ -28,3 +28,13 @@ export interface ChatHistoryItem {
   timestamp: Date;
   messages: Message[];
 }
+
+export interface Repository {
+  owner: string;
+  name: string;
+  description: string;
+  stars: number;
+  forks: number;
+  issues: number;
+  url: string;
+}

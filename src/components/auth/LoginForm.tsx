@@ -35,7 +35,11 @@ const LoginForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
   });
 
   const onSubmit = async (values: FormValues) => {
-    await login(values);
+    // Ensure we pass values with required fields
+    await login({
+      email: values.email,
+      password: values.password
+    });
   };
 
   return (

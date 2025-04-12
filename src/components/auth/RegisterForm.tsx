@@ -37,7 +37,12 @@ const RegisterForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
   });
 
   const onSubmit = async (values: FormValues) => {
-    await register(values);
+    // Ensure we pass values with required fields
+    await register({
+      name: values.name,
+      email: values.email,
+      password: values.password
+    });
   };
 
   return (
