@@ -52,8 +52,12 @@ const ChatWindow: React.FC = () => {
       ) : (
         <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
           <div className="space-y-4">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+            {messages.map((message, index) => (
+              <ChatMessage 
+                key={message.id} 
+                message={message}
+                isLatest={index === messages.length - 1} 
+              />
             ))}
             {isLoading && (
               <div className="flex items-center justify-center py-4">

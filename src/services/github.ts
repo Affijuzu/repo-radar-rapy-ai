@@ -1,4 +1,3 @@
-
 import { Repository } from '@/types/chat';
 
 // Real GitHub API integration
@@ -40,6 +39,10 @@ export class GitHubService {
   
   setApiKey(key: string): void {
     this.apiKey = key;
+  }
+  
+  isConfigured(): boolean {
+    return !!this.apiKey;
   }
   
   private getHeaders() {

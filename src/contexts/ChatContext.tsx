@@ -4,7 +4,7 @@ import { Message, ChatHistoryItem, RepoAnalysis } from '@/types/chat';
 import { useAuth } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { toast as showToast } from '@/components/ui/sonner';
+import { toast as showToast } from 'sonner';
 import pineconeService, { RepoEvaluation } from '@/services/pinecone';
 import githubService from '@/services/github';
 
@@ -110,7 +110,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (repoInfo) {
       // Check if GitHub API is configured
-      if (!githubService.isConfigured()) {
+      if (!githubService.isConfigured) {
         return "I need a valid GitHub API key to analyze repositories. Please go to Settings and configure your API keys first.";
       }
       
@@ -232,14 +232,14 @@ ${userMemory?.userPreferences?.preferredLanguages?.includes('javascript') ||
 
 Based on your history, you've analyzed the following repositories:
 
-${userMemory.repoEvaluations.map((eval: RepoEvaluation, index: number) => `
-## ${index + 1}. ${eval.owner}/${eval.repoName}
-- **Evaluated on:** ${new Date(eval.evaluationDate).toLocaleDateString()}
-- **Stars:** ${eval.stars.toLocaleString()}
-- **Overall Score:** ${eval.overallScore.toFixed(1)}/100
-- **Community Score:** ${eval.communityScore.toFixed(1)}/100
-- **Documentation Score:** ${eval.docQualityScore.toFixed(1)}/100
-- **Activity Score:** ${eval.activityScore.toFixed(1)}/100
+${userMemory.repoEvaluations.map((repoEval: RepoEvaluation, index: number) => `
+## ${index + 1}. ${repoEval.owner}/${repoEval.repoName}
+- **Evaluated on:** ${new Date(repoEval.evaluationDate).toLocaleDateString()}
+- **Stars:** ${repoEval.stars.toLocaleString()}
+- **Overall Score:** ${repoEval.overallScore.toFixed(1)}/100
+- **Community Score:** ${repoEval.communityScore.toFixed(1)}/100
+- **Documentation Score:** ${repoEval.docQualityScore.toFixed(1)}/100
+- **Activity Score:** ${repoEval.activityScore.toFixed(1)}/100
 `).join('\n')}`;
       } else {
         return "I don't have any record of previously analyzed repositories. Let's analyze one now! Just mention a GitHub repository like 'owner/repo' in your message.";
@@ -256,10 +256,10 @@ ${userMemory.repoEvaluations.map((eval: RepoEvaluation, index: number) => `
       return '';
     }
     
-    const avgCommunity = previousEvaluations.reduce((sum, eval) => sum + eval.communityScore, 0) / previousEvaluations.length;
-    const avgDocs = previousEvaluations.reduce((sum, eval) => sum + eval.docQualityScore, 0) / previousEvaluations.length;
-    const avgActivity = previousEvaluations.reduce((sum, eval) => sum + eval.activityScore, 0) / previousEvaluations.length;
-    const avgOverall = previousEvaluations.reduce((sum, eval) => sum + eval.overallScore, 0) / previousEvaluations.length;
+    const avgCommunity = previousEvaluations.reduce((sum, repoEval) => sum + repoEval.communityScore, 0) / previousEvaluations.length;
+    const avgDocs = previousEvaluations.reduce((sum, repoEval) => sum + repoEval.docQualityScore, 0) / previousEvaluations.length;
+    const avgActivity = previousEvaluations.reduce((sum, repoEval) => sum + repoEval.activityScore, 0) / previousEvaluations.length;
+    const avgOverall = previousEvaluations.reduce((sum, repoEval) => sum + repoEval.overallScore, 0) / previousEvaluations.length;
     
     const communityComparison = analysis.communityScore > avgCommunity ? 'higher' : 'lower';
     const docsComparison = analysis.docQualityScore > avgDocs ? 'higher' : 'lower';
