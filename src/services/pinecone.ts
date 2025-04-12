@@ -40,6 +40,7 @@ export class PineconeService {
   private environment?: string;
   private indexName?: string;
   private projectId?: string;
+  private openaiApiKey?: string;
   private namespace = 'anarepo-memories';
   
   static getInstance(): PineconeService {
@@ -49,33 +50,136 @@ export class PineconeService {
     return PineconeService.instance;
   }
   
-  configure(config: { apiKey: string; environment: string; indexName: string; projectId: string }) {
+  configure(config: { 
+    apiKey: string; 
+    environment: string; 
+    indexName: string; 
+    projectId?: string;
+    openaiApiKey?: string;
+  }) {
     this.apiKey = config.apiKey;
     this.environment = config.environment;
     this.indexName = config.indexName;
     this.projectId = config.projectId;
+    this.openaiApiKey = config.openaiApiKey;
     console.log('Pinecone service configured');
+    
+    // Initialize Pinecone index if needed
+    this.initializeIndex().catch(err => {
+      console.error('Failed to initialize Pinecone index:', err);
+    });
   }
   
   isConfigured(): boolean {
-    return !!(this.apiKey && this.environment && this.indexName && this.projectId);
+    return !!(this.apiKey && this.environment && this.indexName && this.openaiApiKey);
   }
   
   private getBaseUrl(): string {
-    return `https://${this.indexName}.svc.${this.environment}.pinecone.io`;
+    return `https://controller.${this.environment}.pinecone.io`;
   }
   
-  private getHeaders(): HeadersInit {
+  private getIndexUrl(): string {
+    return `https://${this.indexName}-${this.projectId || 'default'}.svc.${this.environment}.pinecone.io`;
+  }
+  
+  private getControllerHeaders(): HeadersInit {
     return {
       'Api-Key': this.apiKey || '',
       'Content-Type': 'application/json',
     };
   }
   
+  private getIndexHeaders(): HeadersInit {
+    return {
+      'Api-Key': this.apiKey || '',
+      'Content-Type': 'application/json',
+    };
+  }
+  
+  private async initializeIndex(): Promise<void> {
+    if (!this.isConfigured()) {
+      return;
+    }
+    
+    try {
+      // Check if index exists
+      const response = await fetch(`${this.getBaseUrl()}/databases`, {
+        method: 'GET',
+        headers: this.getControllerHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to list indexes: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const indexExists = data.databases.some((db: any) => db.name === this.indexName);
+      
+      if (!indexExists) {
+        console.log(`Index ${this.indexName} does not exist. Creating...`);
+        
+        // Create the index
+        const createResponse = await fetch(`${this.getBaseUrl()}/databases`, {
+          method: 'POST',
+          headers: this.getControllerHeaders(),
+          body: JSON.stringify({
+            name: this.indexName,
+            dimension: 1536, // OpenAI embedding dimension
+            metric: 'cosine',
+            spec: { 
+              serverless: { 
+                cloud: 'gcp', 
+                region: 'us-west1'
+              } 
+            },
+          }),
+        });
+        
+        if (!createResponse.ok) {
+          console.error('Failed to create index:', await createResponse.text());
+          throw new Error(`Failed to create index: ${createResponse.statusText}`);
+        }
+        
+        console.log(`Index ${this.indexName} created successfully`);
+      } else {
+        console.log(`Index ${this.indexName} already exists`);
+      }
+    } catch (error) {
+      console.error('Error initializing Pinecone index:', error);
+    }
+  }
+  
   private async createEmbedding(text: string): Promise<number[]> {
-    // This should be replaced with a call to an embedding model API like OpenAI or Gemini
-    // For now, we'll use a simple mock embedding function
-    return new Array(384).fill(0).map(() => Math.random() - 0.5);
+    if (!this.openaiApiKey) {
+      console.error('OpenAI API key not configured');
+      // Return a mock embedding for fallback
+      return new Array(1536).fill(0).map(() => Math.random() - 0.5);
+    }
+    
+    try {
+      const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          input: text,
+          model: 'text-embedding-ada-002',
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return data.data[0].embedding;
+    } catch (error) {
+      console.error('Error creating embedding:', error);
+      // Return a mock embedding as fallback
+      return new Array(1536).fill(0).map(() => Math.random() - 0.5);
+    }
   }
   
   async storeMemory(user: User, chatHistory: ChatHistoryItem[]): Promise<void> {
@@ -92,12 +196,15 @@ export class PineconeService {
         chat.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')
       ).join('\n\n');
       
-      // Generate embedding using an embedding model
+      // Generate embedding using OpenAI
       const embedding = await this.createEmbedding(context);
       
       // Extract repo evaluations from chat history
       const repoEvaluations: RepoEvaluation[] = [];
-      const userPreferences: UserPreferences = {
+      
+      // Get existing user preferences or create default ones
+      const memory = await this.retrieveMemory(user);
+      const userPreferences: UserPreferences = memory?.userPreferences || {
         preferredLanguages: [],
         frameworks: [],
         evaluationCriteria: {
@@ -120,9 +227,9 @@ export class PineconeService {
       };
       
       // Send upsert request to Pinecone
-      const response = await fetch(`${this.getBaseUrl()}/vectors/upsert`, {
+      const response = await fetch(`${this.getIndexUrl()}/vectors/upsert`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getIndexHeaders(),
         body: JSON.stringify({
           vectors: [vector],
           namespace: this.namespace
@@ -131,7 +238,10 @@ export class PineconeService {
       
       if (!response.ok) {
         console.error('Pinecone API error:', await response.text());
+        throw new Error(`Pinecone API error: ${response.statusText}`);
       }
+      
+      console.log('Memory stored successfully');
     } catch (error) {
       console.error('Error storing memory in Pinecone:', error);
     }
@@ -147,9 +257,9 @@ export class PineconeService {
       console.log('Retrieving memory for user:', user.id);
       
       // Query Pinecone for the user's vector
-      const response = await fetch(`${this.getBaseUrl()}/vectors/fetch`, {
+      const response = await fetch(`${this.getIndexUrl()}/vectors/fetch`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getIndexHeaders(),
         body: JSON.stringify({
           ids: [`user-${user.id}`],
           namespace: this.namespace
@@ -157,8 +267,12 @@ export class PineconeService {
       });
       
       if (!response.ok) {
+        if (response.status === 404) {
+          console.log('No memory found for user');
+          return null;
+        }
         console.error('Pinecone API error:', await response.text());
-        return null;
+        throw new Error(`Pinecone API error: ${response.statusText}`);
       }
       
       const data = await response.json();
@@ -168,14 +282,19 @@ export class PineconeService {
         return null;
       }
       
-      const repoEvaluations = JSON.parse(vectors.metadata.repoEvaluations || '[]');
-      const userPreferences = JSON.parse(vectors.metadata.userPreferences || '{}');
-      
-      return {
-        userId: user.id,
-        repoEvaluations,
-        userPreferences
-      };
+      try {
+        const repoEvaluations = JSON.parse(vectors.metadata.repoEvaluations || '[]');
+        const userPreferences = JSON.parse(vectors.metadata.userPreferences || '{}');
+        
+        return {
+          userId: user.id,
+          repoEvaluations,
+          userPreferences
+        };
+      } catch (e) {
+        console.error('Error parsing memory data:', e);
+        return null;
+      }
     } catch (error) {
       console.error('Error retrieving memory from Pinecone:', error);
       return null;
@@ -227,9 +346,9 @@ export class PineconeService {
           }
         };
         
-        const response = await fetch(`${this.getBaseUrl()}/vectors/upsert`, {
+        const response = await fetch(`${this.getIndexUrl()}/vectors/upsert`, {
           method: 'POST',
-          headers: this.getHeaders(),
+          headers: this.getIndexHeaders(),
           body: JSON.stringify({
             vectors: [vector],
             namespace: this.namespace
@@ -238,6 +357,7 @@ export class PineconeService {
         
         if (!response.ok) {
           console.error('Pinecone API error:', await response.text());
+          throw new Error(`Pinecone API error: ${response.statusText}`);
         }
         
         return;
@@ -245,11 +365,11 @@ export class PineconeService {
       
       // Merge existing preferences with new preferences
       const updatedPreferences: UserPreferences = {
-        preferredLanguages: preferences.preferredLanguages || memory.userPreferences.preferredLanguages,
-        frameworks: preferences.frameworks || memory.userPreferences.frameworks,
+        preferredLanguages: preferences.preferredLanguages || memory.userPreferences.preferredLanguages || [],
+        frameworks: preferences.frameworks || memory.userPreferences.frameworks || [],
         evaluationCriteria: {
           ...memory.userPreferences.evaluationCriteria,
-          ...preferences.evaluationCriteria
+          ...(preferences.evaluationCriteria || {})
         }
       };
       
@@ -272,9 +392,9 @@ export class PineconeService {
         }
       };
       
-      const response = await fetch(`${this.getBaseUrl()}/vectors/upsert`, {
+      const response = await fetch(`${this.getIndexUrl()}/vectors/upsert`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getIndexHeaders(),
         body: JSON.stringify({
           vectors: [vector],
           namespace: this.namespace
@@ -283,9 +403,13 @@ export class PineconeService {
       
       if (!response.ok) {
         console.error('Pinecone API error:', await response.text());
+        throw new Error(`Pinecone API error: ${response.statusText}`);
       }
+      
+      console.log('User preferences updated successfully');
     } catch (error) {
       console.error('Error updating preferences in Pinecone:', error);
+      throw error;
     }
   }
   
@@ -334,9 +458,9 @@ export class PineconeService {
           }
         };
         
-        const response = await fetch(`${this.getBaseUrl()}/vectors/upsert`, {
+        const response = await fetch(`${this.getIndexUrl()}/vectors/upsert`, {
           method: 'POST',
-          headers: this.getHeaders(),
+          headers: this.getIndexHeaders(),
           body: JSON.stringify({
             vectors: [vector],
             namespace: this.namespace
@@ -345,6 +469,7 @@ export class PineconeService {
         
         if (!response.ok) {
           console.error('Pinecone API error:', await response.text());
+          throw new Error(`Pinecone API error: ${response.statusText}`);
         }
         
         return;
@@ -386,9 +511,9 @@ export class PineconeService {
         }
       };
       
-      const response = await fetch(`${this.getBaseUrl()}/vectors/upsert`, {
+      const response = await fetch(`${this.getIndexUrl()}/vectors/upsert`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getIndexHeaders(),
         body: JSON.stringify({
           vectors: [vector],
           namespace: this.namespace
@@ -397,9 +522,13 @@ export class PineconeService {
       
       if (!response.ok) {
         console.error('Pinecone API error:', await response.text());
+        throw new Error(`Pinecone API error: ${response.statusText}`);
       }
+      
+      console.log('Repository evaluation added successfully');
     } catch (error) {
       console.error('Error adding repo evaluation to Pinecone:', error);
+      throw error;
     }
   }
 }

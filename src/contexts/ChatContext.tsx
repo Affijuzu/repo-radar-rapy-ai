@@ -3,8 +3,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Message, ChatHistoryItem, RepoAnalysis } from '@/types/chat';
 import { useAuth } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
-import { useToast } from '@/components/ui/use-toast';
-import pineconeService from '@/services/pinecone';
+import { useToast } from '@/hooks/use-toast';
+import { toast as showToast } from '@/components/ui/sonner';
+import pineconeService, { RepoEvaluation } from '@/services/pinecone';
 import githubService from '@/services/github';
 
 interface ChatContextType {
@@ -32,6 +33,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [userMemory, setUserMemory] = useState<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -56,21 +58,32 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // In a full implementation, we would also load memory from Pinecone here
+      // Load memory from Pinecone
       const loadMemory = async () => {
         try {
-          const memory = await pineconeService.retrieveMemory(user);
-          console.log("Loaded memory from Pinecone:", memory);
-          // Use the memory to enhance the chat experience
+          if (pineconeService.isConfigured()) {
+            const memory = await pineconeService.retrieveMemory(user);
+            if (memory) {
+              console.log("Loaded memory from Pinecone:", memory);
+              setUserMemory(memory);
+              
+              // Show a toast notification if we have previous evaluations
+              if (memory.repoEvaluations && memory.repoEvaluations.length > 0) {
+                showToast("Memory loaded", {
+                  description: `Found ${memory.repoEvaluations.length} previous repository evaluations`,
+                });
+              }
+            }
+          }
         } catch (e) {
           console.error("Failed to load memory from Pinecone", e);
         }
       };
       
-      // Commenting out for now as this is a mock implementation
-      // loadMemory();
+      loadMemory();
     } else {
       setChatHistory([]);
+      setUserMemory(null);
     }
   }, [user]);
 
@@ -96,76 +109,168 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const repoInfo = extractRepoInfo(content);
     
     if (repoInfo) {
+      // Check if GitHub API is configured
+      if (!githubService.isConfigured()) {
+        return "I need a valid GitHub API key to analyze repositories. Please go to Settings and configure your API keys first.";
+      }
+      
       // Analyze the repository
       try {
+        showToast("Analyzing repository", {
+          description: `Fetching data for ${repoInfo.owner}/${repoInfo.repo}...`,
+        });
+        
         const analysis = await githubService.analyzeRepo(repoInfo.owner, repoInfo.repo);
         
         if (analysis) {
-          // Store this evaluation in memory (would be Pinecone in a real app)
-          if (user) {
-            pineconeService.addRepoEvaluation(user, {
-              repoName: repoInfo.repo,
-              owner: repoInfo.owner,
-              evaluationDate: new Date(),
-              stars: analysis.repoData.stars,
-              forks: analysis.repoData.forks,
-              issues: analysis.repoData.issues,
-              contributors: analysis.repoData.contributors,
-              commitFrequency: analysis.repoData.commitFrequency,
-              communityScore: analysis.communityScore,
-              docQualityScore: analysis.docQualityScore,
-              activityScore: analysis.activityScore,
-              overallScore: analysis.overallScore
-            });
+          // Store this evaluation in Pinecone
+          if (user && pineconeService.isConfigured()) {
+            try {
+              await pineconeService.addRepoEvaluation(user, {
+                repoName: repoInfo.repo,
+                owner: repoInfo.owner,
+                evaluationDate: new Date(),
+                stars: analysis.repoData.stars,
+                forks: analysis.repoData.forks,
+                issues: analysis.repoData.issues,
+                contributors: analysis.repoData.contributors,
+                commitFrequency: analysis.repoData.commitFrequency,
+                communityScore: analysis.communityScore,
+                docQualityScore: analysis.docQualityScore,
+                activityScore: analysis.activityScore,
+                overallScore: analysis.overallScore
+              });
+              
+              showToast("Repository analyzed", {
+                description: "Evaluation saved to memory",
+              });
+            } catch (e) {
+              console.error("Error storing repo evaluation:", e);
+              showToast("Warning", {
+                description: "Couldn't save evaluation to memory",
+              });
+            }
           }
           
           // Format the analysis response
-          return `Based on my analysis of ${repoInfo.owner}/${repoInfo.repo}:
+          return `# Analysis of ${repoInfo.owner}/${repoInfo.repo}
 
-Stars: ${analysis.repoData.stars.toLocaleString()}
-Forks: ${analysis.repoData.forks.toLocaleString()}
-Open Issues: ${analysis.repoData.issues.toLocaleString()}
-Contributors: ${analysis.repoData.contributors}
+## Repository Statistics
+- **Stars:** ${analysis.repoData.stars.toLocaleString()}
+- **Forks:** ${analysis.repoData.forks.toLocaleString()}
+- **Open Issues:** ${analysis.repoData.issues.toLocaleString()}
+- **Contributors:** ${analysis.repoData.contributors}
+- **Last Updated:** ${analysis.repoData.lastUpdated.toLocaleDateString()}
 
-Community Score: ${analysis.communityScore.toFixed(1)}/100
-Documentation Quality: ${analysis.docQualityScore.toFixed(1)}/100
-Activity Score: ${analysis.activityScore.toFixed(1)}/100
-Overall Score: ${analysis.overallScore.toFixed(1)}/100
+## Evaluation Scores
+- **Community Support:** ${analysis.communityScore.toFixed(1)}/100
+- **Documentation Quality:** ${analysis.docQualityScore.toFixed(1)}/100
+- **Activity Level:** ${analysis.activityScore.toFixed(1)}/100
+- **Overall Score:** ${analysis.overallScore.toFixed(1)}/100
 
+## Documentation
+- README: ${analysis.repoData.hasReadme ? '✅ Present' : '❌ Missing'}
+- Contributing Guidelines: ${analysis.repoData.hasContributing ? '✅ Present' : '❌ Missing'}
+- Issue Templates: ${analysis.repoData.hasIssueTemplates ? '✅ Present' : '❌ Missing'}
+
+## Analysis Summary
 ${analysis.overallScore > 80 ? 'This is an excellent repository with strong community support and documentation.' :
   analysis.overallScore > 60 ? 'This is a good repository with decent community support.' :
   analysis.overallScore > 40 ? 'This repository has some challenges but may still be useful depending on your needs.' :
-  'This repository shows signs of low activity or limited documentation. Consider alternative options.'}`;
+  'This repository shows signs of low activity or limited documentation. Consider alternative options.'}
+
+${userMemory?.repoEvaluations?.length > 0 ? 
+  '\n## Comparison with Previously Evaluated Repos\n' + 
+  compareWithPreviousEvaluations(analysis, userMemory.repoEvaluations) : ''}`;
         }
       } catch (e) {
         console.error("Failed to analyze repository", e);
-        return "I encountered an error while analyzing this repository. Please try again or check if the repository exists.";
+        return "I encountered an error while analyzing this repository. Please try again or check if the repository exists and that your GitHub API key is valid.";
       }
     }
     
-    // For other types of messages, use canned responses
-    const responses = [
-      "Based on my analysis, this repository has excellent documentation and strong community support. The commit frequency is high, indicating active maintenance.",
-      "Looking at the repository trends, I notice this project has gained significant traction in the past months. Stars have increased by 28% and the number of contributors has doubled.",
-      "Comparing this with repositories we've analyzed before, this one scores lower on documentation quality but higher on community engagement. The issue response time is particularly impressive.",
-      "This React state management library shows promising activity levels. With 12k stars and an average of 32 commits per week, it ranks in the top 5% of active React libraries.",
-      "I've analyzed the Python library as requested. It has good test coverage (87%) but the documentation could use improvement. The maintainers are very responsive to issues, typically responding within 24 hours.",
-      "Based on your preferred evaluation criteria from our previous discussions, this repository scores 8.7/10. It meets most of your requirements for activity and maintenance."
-    ];
-    
-    // If the message is asking about React state management libraries
-    if (content.toLowerCase().includes("react") && content.toLowerCase().includes("state") && 
+    // Check for specific requests
+    if (content.toLowerCase().includes("react state") && 
         (content.toLowerCase().includes("library") || content.toLowerCase().includes("libraries"))) {
-      return "Based on my analysis of React state management libraries, here are the top choices:\n\n" +
-        "1. Redux (45k+ stars): The most established option with extensive ecosystem\n" +
-        "2. Zustand (33k+ stars): Simple, hook-based state management with minimal boilerplate\n" +
-        "3. Jotai (12k+ stars): Atomic approach to state management with React Suspense support\n" +
-        "4. Recoil (18k+ stars): Facebook's experimental library for state management\n" +
-        "5. MobX (25k+ stars): Reactive state management using observable patterns\n\n" +
-        "Zustand has shown the highest growth rate recently, with many developers migrating from Redux due to its simplicity.";
+      
+      try {
+        // Search for React state management libraries
+        const repositories = await githubService.searchRepos("react state management library");
+        
+        if (repositories && repositories.length > 0) {
+          // Format the response
+          return `# React State Management Libraries
+
+Based on my analysis, here are the top React state management libraries:
+
+${repositories.map((repo, index) => `
+## ${index + 1}. ${repo.name} (${repo.owner})
+- **Stars:** ${repo.stars.toLocaleString()}
+- **Forks:** ${repo.forks.toLocaleString()}
+- **Open Issues:** ${repo.issues.toLocaleString()}
+- **URL:** ${repo.url}
+- **Description:** ${repo.description || 'No description available'}
+`).join('\n')}
+
+${userMemory?.userPreferences?.preferredLanguages?.includes('javascript') || 
+  userMemory?.userPreferences?.frameworks?.includes('react') ?
+  "\nBased on your preferences, I've prioritized React libraries that align with your interests." : ""}
+`;
+        }
+      } catch (e) {
+        console.error("Error searching repositories:", e);
+      }
     }
     
-    return responses[Math.floor(Math.random() * responses.length)];
+    // If user has memory and asks about previous evaluations
+    if (content.toLowerCase().includes("previous") && 
+        (content.toLowerCase().includes("evaluation") || content.toLowerCase().includes("repository") || 
+         content.toLowerCase().includes("repo") || content.toLowerCase().includes("analyzed"))) {
+      
+      if (userMemory && userMemory.repoEvaluations && userMemory.repoEvaluations.length > 0) {
+        return `# Previously Analyzed Repositories
+
+Based on your history, you've analyzed the following repositories:
+
+${userMemory.repoEvaluations.map((eval: RepoEvaluation, index: number) => `
+## ${index + 1}. ${eval.owner}/${eval.repoName}
+- **Evaluated on:** ${new Date(eval.evaluationDate).toLocaleDateString()}
+- **Stars:** ${eval.stars.toLocaleString()}
+- **Overall Score:** ${eval.overallScore.toFixed(1)}/100
+- **Community Score:** ${eval.communityScore.toFixed(1)}/100
+- **Documentation Score:** ${eval.docQualityScore.toFixed(1)}/100
+- **Activity Score:** ${eval.activityScore.toFixed(1)}/100
+`).join('\n')}`;
+      } else {
+        return "I don't have any record of previously analyzed repositories. Let's analyze one now! Just mention a GitHub repository like 'owner/repo' in your message.";
+      }
+    }
+    
+    // Default response when no specific pattern is matched
+    return "I'm Rapy, your GitHub repository analysis assistant! I can help you evaluate open-source projects based on metrics like stars, activity, community support, and documentation quality.\n\nTo analyze a repository, simply mention it in your message like 'facebook/react' or ask me about specific technologies like 'What are the most active React state management libraries?'";
+  };
+  
+  // Helper function to compare a new evaluation with previous ones
+  const compareWithPreviousEvaluations = (analysis: any, previousEvaluations: RepoEvaluation[]): string => {
+    if (!previousEvaluations || previousEvaluations.length === 0) {
+      return '';
+    }
+    
+    const avgCommunity = previousEvaluations.reduce((sum, eval) => sum + eval.communityScore, 0) / previousEvaluations.length;
+    const avgDocs = previousEvaluations.reduce((sum, eval) => sum + eval.docQualityScore, 0) / previousEvaluations.length;
+    const avgActivity = previousEvaluations.reduce((sum, eval) => sum + eval.activityScore, 0) / previousEvaluations.length;
+    const avgOverall = previousEvaluations.reduce((sum, eval) => sum + eval.overallScore, 0) / previousEvaluations.length;
+    
+    const communityComparison = analysis.communityScore > avgCommunity ? 'higher' : 'lower';
+    const docsComparison = analysis.docQualityScore > avgDocs ? 'higher' : 'lower';
+    const activityComparison = analysis.activityScore > avgActivity ? 'higher' : 'lower';
+    const overallComparison = analysis.overallScore > avgOverall ? 'higher' : 'lower';
+    
+    return `Compared to your previously analyzed repositories:
+- Community support is ${communityComparison} than average (${avgCommunity.toFixed(1)})
+- Documentation quality is ${docsComparison} than average (${avgDocs.toFixed(1)})
+- Activity level is ${activityComparison} than average (${avgActivity.toFixed(1)})
+- Overall score is ${overallComparison} than average (${avgOverall.toFixed(1)})`;
   };
 
   const sendMessage = async (content: string) => {
@@ -213,8 +318,14 @@ ${analysis.overallScore > 80 ? 'This is an excellent repository with strong comm
           JSON.stringify(updatedHistory)
         );
 
-        // In a full implementation, we would also store this in Pinecone
-        pineconeService.storeMemory(user, updatedHistory);
+        // Store in Pinecone if configured
+        if (pineconeService.isConfigured()) {
+          try {
+            await pineconeService.storeMemory(user, updatedHistory);
+          } catch (e) {
+            console.error("Error storing memory in Pinecone:", e);
+          }
+        }
       } else if (user) {
         // Update existing conversation
         const updatedMessages = [...messages, newUserMessage, newAssistantMessage];
@@ -234,8 +345,14 @@ ${analysis.overallScore > 80 ? 'This is an excellent repository with strong comm
           JSON.stringify(updatedHistory)
         );
 
-        // In a full implementation, we would also update this in Pinecone
-        pineconeService.storeMemory(user, updatedHistory);
+        // Update in Pinecone if configured
+        if (pineconeService.isConfigured()) {
+          try {
+            await pineconeService.storeMemory(user, updatedHistory);
+          } catch (e) {
+            console.error("Error updating memory in Pinecone:", e);
+          }
+        }
       }
     } catch (error) {
       toast({
