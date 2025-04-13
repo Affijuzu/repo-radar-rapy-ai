@@ -22,7 +22,17 @@ interface UserMemory {
   userPreferences?: {
     preferredLanguages?: string[];
     frameworks?: string[];
+    evaluationCriteria?: {
+      prioritizeDocs?: boolean;
+      prioritizeActivity?: boolean;
+      prioritizeCommunity?: boolean;
+    };
   };
+}
+
+interface PineconeConfig {
+  indexName: string;
+  namespace: string;
 }
 
 const pineconeService = {
@@ -66,12 +76,19 @@ const pineconeService = {
       }));
 
       // Format user preferences if available
-      const userPreferences = settingsData?.notification_preferences 
-        ? {
-            preferredLanguages: settingsData.notification_preferences.preferred_languages || [],
-            frameworks: settingsData.notification_preferences.frameworks || []
+      let userPreferences;
+      
+      if (settingsData?.notification_preferences) {
+        userPreferences = {
+          preferredLanguages: settingsData.notification_preferences.preferred_languages || [],
+          frameworks: settingsData.notification_preferences.frameworks || [],
+          evaluationCriteria: {
+            prioritizeDocs: settingsData.notification_preferences.prioritize_docs || false,
+            prioritizeActivity: settingsData.notification_preferences.prioritize_activity || false, 
+            prioritizeCommunity: settingsData.notification_preferences.prioritize_community || false
           }
-        : undefined;
+        };
+      }
 
       return {
         repoEvaluations,
@@ -111,6 +128,57 @@ const pineconeService = {
       if (error) throw error;
     } catch (error) {
       console.error("Error storing repo evaluation in Supabase:", error);
+    }
+  },
+  
+  updateUserPreferences: async (user: User, preferences: UserMemory["userPreferences"]): Promise<void> => {
+    try {
+      if (!preferences) return;
+      
+      // Check if user settings exist
+      const { data, error: checkError } = await supabase
+        .from('user_settings')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+        
+      if (checkError) throw checkError;
+
+      // Format preferences for storage
+      const notificationPreferences = {
+        preferred_languages: preferences.preferredLanguages || [],
+        frameworks: preferences.frameworks || [],
+        prioritize_docs: preferences.evaluationCriteria?.prioritizeDocs || false,
+        prioritize_activity: preferences.evaluationCriteria?.prioritizeActivity || false,
+        prioritize_community: preferences.evaluationCriteria?.prioritizeCommunity || false
+      };
+      
+      // Insert or update user settings
+      if (!data) {
+        // Insert new settings
+        const { error } = await supabase
+          .from('user_settings')
+          .insert({
+            user_id: user.id,
+            notification_preferences: notificationPreferences
+          });
+          
+        if (error) throw error;
+      } else {
+        // Update existing settings
+        const { error } = await supabase
+          .from('user_settings')
+          .update({
+            notification_preferences: notificationPreferences,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+          
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error("Error updating user preferences:", error);
+      throw error;
     }
   }
 };

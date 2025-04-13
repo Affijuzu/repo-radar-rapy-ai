@@ -12,38 +12,32 @@ export const initializeApp = async () => {
   // Initialize deployment settings
   initializeServices();
   
-  // Initialize GitHub API
-  if (API_KEYS.GITHUB_TOKEN) {
-    githubService.setApiKey(API_KEYS.GITHUB_TOKEN);
-    console.log("GitHub API initialized");
-  } else {
-    console.warn("GitHub API token not found in environment");
+  // Check if GitHub API is configured
+  const githubConfigured = githubService.isConfigured();
+  if (!githubConfigured) {
+    console.warn("GitHub API not properly configured");
     showToast("GitHub API", {
-      description: "GitHub API token not found. Some features will be limited.",
+      description: "GitHub API is not properly configured. Some features will be limited.",
     });
+  } else {
+    console.log("GitHub API initialized");
   }
   
-  // Initialize Pinecone and OpenAI
-  if (API_KEYS.PINECONE_API_KEY && API_KEYS.OPENAI_API_KEY) {
-    pineconeService.configure({
-      apiKey: API_KEYS.PINECONE_API_KEY,
-      environment: API_KEYS.PINECONE_ENVIRONMENT,
-      indexName: API_KEYS.PINECONE_INDEX,
-      projectId: API_KEYS.PINECONE_PROJECT_ID,
-      openaiApiKey: API_KEYS.OPENAI_API_KEY
+  // Check if Pinecone is configured
+  const pineconeConfigured = pineconeService.isConfigured();
+  if (!pineconeConfigured) {
+    console.warn("Memory system not properly configured");
+    showToast("Memory System", {
+      description: "Memory system is not properly configured. Some features will be limited.",
     });
-    console.log("Pinecone and OpenAI APIs initialized");
   } else {
-    console.warn("Pinecone or OpenAI API tokens not found in environment");
-    showToast("Vector DB", {
-      description: "Pinecone or OpenAI API tokens not found. Memory features will be limited.",
-    });
+    console.log("Memory system initialized");
   }
   
   return {
     servicesAvailable: {
-      github: githubService.isConfigured(),
-      pinecone: pineconeService.isConfigured()
+      github: githubConfigured,
+      pinecone: pineconeConfigured
     }
   };
 };
@@ -56,10 +50,6 @@ export const generateEnvFileGuide = () => `
 # Copy this to your .env file for local development
 # For production deployment, set these in your hosting environment
 
-VITE_GITHUB_TOKEN=${API_KEYS.GITHUB_TOKEN}
-VITE_PINECONE_API_KEY=${API_KEYS.PINECONE_API_KEY}
-VITE_PINECONE_ENVIRONMENT=${API_KEYS.PINECONE_ENVIRONMENT}
-VITE_PINECONE_INDEX=${API_KEYS.PINECONE_INDEX}
-VITE_PINECONE_PROJECT_ID=${API_KEYS.PINECONE_PROJECT_ID || ""}
-VITE_OPENAI_API_KEY=${API_KEYS.OPENAI_API_KEY}
+VITE_SUPABASE_URL=${import.meta.env.VITE_SUPABASE_URL || "https://ujpdzlhtoehfhbakqieg.supabase.co"}
+VITE_SUPABASE_ANON_KEY=${import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqcGR6bGh0b2VoZmhiYWtxaWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1MjQ0MjgsImV4cCI6MjA2MDEwMDQyOH0.vM0NliqvwFlh4cfRG0-E9LvpL80U5KFmjlCtmqz8-4g"}
 `;
