@@ -1,3 +1,4 @@
+
 project_id = "ujpdzlhtoehfhbakqieg"
 
 [api]
@@ -10,11 +11,11 @@ max_rows = 1000
 # Add CORS configurations
 additional_redirect_urls = [
   "http://localhost:5173",
-  "https://your-app.vercel.app"
+  "https://repo-radar-rapy-ai.vercel.app"
 ]
 cors_origins = [
-  "http://localhost:5173",
-  "https://your-app.vercel.app"
+  "http://localhost:5173", 
+  "https://repo-radar-rapy-ai.vercel.app"
 ]
 
 [db]
