@@ -1,1 +1,8 @@
+
 project_id = "ujpdzlhtoehfhbakqieg"
+
+[functions.analyze-repo]
+verify_jwt = false
+
+[functions.generate-response]
+verify_jwt = false

@@ -9,7 +9,200 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      chat_history: {
+        Row: {
+          created_at: string
+          id: string
+          snippet: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          snippet?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          snippet?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          chat_id: string
+          content: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          chat_id: string
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          chat_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chat_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      repo_analyses: {
+        Row: {
+          activity_score: number
+          commit_frequency: number
+          community_score: number
+          contributors: number
+          doc_quality_score: number
+          evaluated_at: string
+          forks: number
+          id: string
+          issues: number
+          overall_score: number
+          owner: string
+          repo_name: string
+          stars: number
+          user_id: string
+        }
+        Insert: {
+          activity_score?: number
+          commit_frequency?: number
+          community_score?: number
+          contributors?: number
+          doc_quality_score?: number
+          evaluated_at?: string
+          forks?: number
+          id?: string
+          issues?: number
+          overall_score?: number
+          owner: string
+          repo_name: string
+          stars?: number
+          user_id: string
+        }
+        Update: {
+          activity_score?: number
+          commit_frequency?: number
+          community_score?: number
+          contributors?: number
+          doc_quality_score?: number
+          evaluated_at?: string
+          forks?: number
+          id?: string
+          issues?: number
+          overall_score?: number
+          owner?: string
+          repo_name?: string
+          stars?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repo_analyses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          github_token: string | null
+          notification_preferences: Json | null
+          openai_api_key: string | null
+          pinecone_api_key: string | null
+          theme_preference: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          github_token?: string | null
+          notification_preferences?: Json | null
+          openai_api_key?: string | null
+          pinecone_api_key?: string | null
+          theme_preference?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          github_token?: string | null
+          notification_preferences?: Json | null
+          openai_api_key?: string | null
+          pinecone_api_key?: string | null
+          theme_preference?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
