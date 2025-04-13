@@ -18,6 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import githubService from '@/services/github';
 import pineconeService from '@/services/pinecone';
+import { API_KEYS } from '@/config/apiConfig';
 
 const formSchema = z.object({
   githubApiKey: z.string().min(1, 'GitHub API key is required'),
@@ -50,13 +51,13 @@ const ApiKeysForm: React.FC = () => {
     },
   });
 
-  // Load saved API keys from localStorage on component mount
+  // Load API keys from localStorage or config on component mount
   useEffect(() => {
     // Set default values from the provided tokens
-    const githubToken = "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";
-    const pineconeApiKey = "pcsk_2URAax_Myr77sDVt9VBAP5rk9pNdi61PfaMVy1VKqMk2iLxjW5RmyLQxsfTHuHE9ScQHYH";
-    const pineconeEnv = "gcp-starter";
-    const openaiApiKey = "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";
+    const githubToken = API_KEYS.GITHUB_TOKEN;
+    const pineconeApiKey = API_KEYS.PINECONE_API_KEY;
+    const pineconeEnv = API_KEYS.PINECONE_ENVIRONMENT;
+    const openaiApiKey = API_KEYS.OPENAI_API_KEY;
     
     // Try to get from localStorage first, otherwise use the defaults
     const savedGithubKey = localStorage.getItem('anarepo_github_api_key') || githubToken;

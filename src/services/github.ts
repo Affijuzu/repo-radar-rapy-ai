@@ -1,4 +1,5 @@
 import { Repository } from '@/types/chat';
+import { API_KEYS, API_ENDPOINTS } from '@/config/apiConfig';
 
 // Real GitHub API integration
 export interface RepoData {
@@ -27,8 +28,16 @@ export interface RepoAnalysis {
 // GitHub service implementation with actual API calls
 export class GitHubService {
   private static instance: GitHubService;
-  private apiKey?: string;
-  private baseUrl = 'https://api.github.com';
+  private apiKey: string = API_KEYS.GITHUB_TOKEN;
+  private baseUrl: string = API_ENDPOINTS.GITHUB_API;
+  
+  constructor() {
+    // Initialize with default API key
+    if (API_KEYS.GITHUB_TOKEN) {
+      this.apiKey = API_KEYS.GITHUB_TOKEN;
+      console.log('GitHub service initialized with API key');
+    }
+  }
   
   static getInstance(): GitHubService {
     if (!GitHubService.instance) {
@@ -39,6 +48,7 @@ export class GitHubService {
   
   setApiKey(key: string): void {
     this.apiKey = key;
+    console.log('GitHub API key updated');
   }
   
   isConfigured(): boolean {
@@ -229,4 +239,6 @@ export class GitHubService {
   }
 }
 
-export default GitHubService.getInstance();
+// Create and export singleton instance
+const githubService = GitHubService.getInstance();
+export default githubService;

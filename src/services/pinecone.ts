@@ -1,6 +1,7 @@
-
 import { User } from '@/types/auth';
-import { ChatHistoryItem, RepoAnalysis } from '@/types/chat';
+import { ChatHistoryItem } from '@/types/chat';
+import { API_KEYS, SERVICE_CONFIG } from '@/config/apiConfig';
+import { toast as showToast } from 'sonner';
 
 export interface PineconeMemory {
   userId: string;
@@ -36,12 +37,27 @@ export interface UserPreferences {
 // Pinecone service with real API integration
 export class PineconeService {
   private static instance: PineconeService;
-  private apiKey?: string;
-  private environment?: string;
-  private indexName?: string;
-  private projectId?: string;
-  private openaiApiKey?: string;
-  private namespace = 'anarepo-memories';
+  private apiKey: string = API_KEYS.PINECONE_API_KEY;
+  private environment: string = API_KEYS.PINECONE_ENVIRONMENT;
+  private indexName: string = API_KEYS.PINECONE_INDEX;
+  private projectId: string = API_KEYS.PINECONE_PROJECT_ID;
+  private openaiApiKey: string = API_KEYS.OPENAI_API_KEY;
+  private namespace = SERVICE_CONFIG.pinecone.namespace;
+  
+  constructor() {
+    // Initialize with default config
+    if (API_KEYS.PINECONE_API_KEY && API_KEYS.PINECONE_ENVIRONMENT) {
+      this.configure({
+        apiKey: API_KEYS.PINECONE_API_KEY,
+        environment: API_KEYS.PINECONE_ENVIRONMENT,
+        indexName: API_KEYS.PINECONE_INDEX,
+        projectId: API_KEYS.PINECONE_PROJECT_ID,
+        openaiApiKey: API_KEYS.OPENAI_API_KEY,
+      });
+      
+      console.log('Pinecone service initialized with default configuration');
+    }
+  }
   
   static getInstance(): PineconeService {
     if (!PineconeService.instance) {
@@ -60,13 +76,16 @@ export class PineconeService {
     this.apiKey = config.apiKey;
     this.environment = config.environment;
     this.indexName = config.indexName;
-    this.projectId = config.projectId;
-    this.openaiApiKey = config.openaiApiKey;
+    this.projectId = config.projectId || '';
+    this.openaiApiKey = config.openaiApiKey || '';
     console.log('Pinecone service configured');
     
     // Initialize Pinecone index if needed
     this.initializeIndex().catch(err => {
       console.error('Failed to initialize Pinecone index:', err);
+      showToast("Pinecone Error", {
+        description: "Failed to initialize Pinecone index. Check console for details.",
+      });
     });
   }
   
@@ -533,4 +552,6 @@ export class PineconeService {
   }
 }
 
-export default PineconeService.getInstance();
+// Create and export singleton instance
+const pineconeService = PineconeService.getInstance();
+export default pineconeService;
