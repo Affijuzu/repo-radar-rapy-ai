@@ -8,6 +8,8 @@ import { toast } from "sonner";
  */
 export const generateResponse = async (content: string, user: User | null, userMemory: any): Promise<string> => {
   try {
+    console.log("Generating response for:", content);
+    
     // Call the generate-response edge function
     const { data, error } = await supabase.functions.invoke('generate-response', {
       body: {
@@ -19,16 +21,24 @@ export const generateResponse = async (content: string, user: User | null, userM
 
     if (error) {
       console.error("Error invoking generate-response function:", error);
+      toast.error("Failed to generate a response", {
+        description: error.message || "Please try again later"
+      });
       return "I'm sorry, I encountered an error while processing your request. Please try again later.";
     }
 
-    if (data && data.response) {
-      return data.response;
+    if (!data || !data.response) {
+      console.error("No response data returned");
+      return "I'm sorry, I didn't understand that request. Could you please rephrase?";
     }
 
-    return "I'm sorry, I didn't understand that request. Could you please rephrase?";
-  } catch (e) {
+    console.log("Response generated successfully");
+    return data.response;
+  } catch (e: any) {
     console.error("Failed to generate response:", e);
+    toast.error("Failed to generate a response", {
+      description: e.message || "Please try again later"
+    });
     return "I'm sorry, I encountered an error while processing your request. Please try again later.";
   }
 };

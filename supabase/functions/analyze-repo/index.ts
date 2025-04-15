@@ -43,56 +43,72 @@ function calculateScores(repoData: any) {
 
 // Mock GitHub API for demo (in a real app, we'd call the actual GitHub API)
 async function fetchRepoData(owner: string, repo: string) {
-  // This is a mock implementation
-  // In production, you would use the GitHub API:
-  // const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+  console.log(`Fetching data for ${owner}/${repo}`);
   
-  // Generate realistic but random data
-  const now = new Date();
-  const repoData = {
-    stars: Math.floor(Math.random() * 50000) + 100,
-    forks: Math.floor(Math.random() * 5000) + 10,
-    issues: Math.floor(Math.random() * 500) + 5,
-    contributors: Math.floor(Math.random() * 100) + 2,
-    lastUpdated: new Date(now.setDate(now.getDate() - Math.floor(Math.random() * 60))),
-    commitFrequency: Math.random() * 10 + 0.2, // commits per day
-    hasReadme: Math.random() > 0.1, // 90% have README
-    hasContributing: Math.random() > 0.5, // 50% have CONTRIBUTING
-    hasIssueTemplates: Math.random() > 0.4, // 60% have issue templates
-  };
-  
-  return repoData;
+  try {
+    // This is a mock implementation
+    // In production, you would use the GitHub API:
+    // const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+    
+    // Generate realistic but random data
+    const now = new Date();
+    const repoData = {
+      stars: Math.floor(Math.random() * 50000) + 100,
+      forks: Math.floor(Math.random() * 5000) + 10,
+      issues: Math.floor(Math.random() * 500) + 5,
+      contributors: Math.floor(Math.random() * 100) + 2,
+      lastUpdated: new Date(now.setDate(now.getDate() - Math.floor(Math.random() * 60))),
+      commitFrequency: Math.random() * 10 + 0.2, // commits per day
+      hasReadme: Math.random() > 0.1, // 90% have README
+      hasContributing: Math.random() > 0.5, // 50% have CONTRIBUTING
+      hasIssueTemplates: Math.random() > 0.4, // 60% have issue templates
+    };
+    
+    console.log("Generated repo data:", JSON.stringify(repoData));
+    return repoData;
+  } catch (error) {
+    console.error("Error fetching repo data:", error);
+    throw error;
+  }
 }
 
 // Mock GitHub search API
 async function searchRepositories(query: string) {
-  // This would normally call the GitHub search API
-  // const response = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}`);
+  console.log(`Searching for repositories with query: ${query}`);
   
-  const repositories = [];
-  const count = 5; // Return 5 repositories
-  
-  for (let i = 0; i < count; i++) {
-    const repoNames = [
-      "redux", "recoil", "mobx", "zustand", "jotai", "valtio", "xstate"
-    ];
-    const owners = [
-      "facebook", "pmndrs", "mobxjs", "reduxjs", "statelyai"
-    ];
+  try {
+    // This would normally call the GitHub search API
+    // const response = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}`);
     
-    repositories.push({
-      name: repoNames[i % repoNames.length],
-      owner: owners[i % owners.length],
-      stars: Math.floor(Math.random() * 50000) + 1000,
-      forks: Math.floor(Math.random() * 5000) + 100,
-      issues: Math.floor(Math.random() * 300) + 10,
-      url: `https://github.com/${owners[i % owners.length]}/${repoNames[i % repoNames.length]}`,
-      description: `A state management library for ${query.includes("react") ? "React" : "JavaScript"} applications`
-    });
+    const repositories = [];
+    const count = 5; // Return 5 repositories
+    
+    for (let i = 0; i < count; i++) {
+      const repoNames = [
+        "redux", "recoil", "mobx", "zustand", "jotai", "valtio", "xstate"
+      ];
+      const owners = [
+        "facebook", "pmndrs", "mobxjs", "reduxjs", "statelyai"
+      ];
+      
+      repositories.push({
+        name: repoNames[i % repoNames.length],
+        owner: owners[i % owners.length],
+        stars: Math.floor(Math.random() * 50000) + 1000,
+        forks: Math.floor(Math.random() * 5000) + 100,
+        issues: Math.floor(Math.random() * 300) + 10,
+        url: `https://github.com/${owners[i % owners.length]}/${repoNames[i % repoNames.length]}`,
+        description: `A state management library for ${query.includes("react") ? "React" : "JavaScript"} applications`
+      });
+    }
+    
+    console.log(`Found ${repositories.length} repositories`);
+    // Sort by stars
+    return repositories.sort((a, b) => b.stars - a.stars);
+  } catch (error) {
+    console.error("Error searching repositories:", error);
+    throw error;
   }
-  
-  // Sort by stars
-  return repositories.sort((a, b) => b.stars - a.stars);
 }
 
 serve(async (req) => {
@@ -101,12 +117,19 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("analyze-repo: Received request");
+  
   try {
     const { owner, repo, searchQuery } = await req.json();
     
+    console.log("Request parameters:", { owner, repo, searchQuery });
+    
     if (searchQuery) {
       // Handle repository search
+      console.log(`Searching for: ${searchQuery}`);
       const searchResults = await searchRepositories(searchQuery);
+      
+      console.log(`Returning ${searchResults.length} search results`);
       return new Response(
         JSON.stringify({ searchResults }),
         {
@@ -120,6 +143,7 @@ serve(async (req) => {
     }
 
     // Fetch repository data
+    console.log(`Analyzing repo: ${owner}/${repo}`);
     const repoData = await fetchRepoData(owner, repo);
     
     // Calculate scores
@@ -131,6 +155,8 @@ serve(async (req) => {
       ...scores
     };
 
+    console.log("Analysis complete:", JSON.stringify(result));
+    
     // Return the analysis
     return new Response(
       JSON.stringify(result),
@@ -138,10 +164,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || "An unknown error occurred" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

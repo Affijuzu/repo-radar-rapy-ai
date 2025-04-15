@@ -79,13 +79,14 @@ const pineconeService = {
       let userPreferences;
       
       if (settingsData?.notification_preferences) {
+        const prefs = settingsData.notification_preferences as Record<string, any>;
         userPreferences = {
-          preferredLanguages: settingsData.notification_preferences.preferred_languages || [],
-          frameworks: settingsData.notification_preferences.frameworks || [],
+          preferredLanguages: prefs.preferred_languages || [],
+          frameworks: prefs.frameworks || [],
           evaluationCriteria: {
-            prioritizeDocs: settingsData.notification_preferences.prioritize_docs || false,
-            prioritizeActivity: settingsData.notification_preferences.prioritize_activity || false, 
-            prioritizeCommunity: settingsData.notification_preferences.prioritize_community || false
+            prioritizeDocs: prefs.prioritize_docs || false,
+            prioritizeActivity: prefs.prioritize_activity || false, 
+            prioritizeCommunity: prefs.prioritize_community || false
           }
         };
       }
@@ -180,7 +181,11 @@ const pineconeService = {
       console.error("Error updating user preferences:", error);
       throw error;
     }
-  }
+  },
+
+  // Add these empty methods to make ApiKeysForm happy
+  setApiKey: () => {},
+  getRepoData: async () => { return {} as any; }
 };
 
 export default pineconeService;

@@ -30,6 +30,7 @@ function getDefaultResponse() {
 
 // Function to format repository analysis as markdown
 function formatRepoAnalysis(repoInfo, analysis, userMemory) {
+  console.log("Formatting repo analysis for", repoInfo.owner + "/" + repoInfo.repo);
   return `# Analysis of ${repoInfo.owner}/${repoInfo.repo}
 
 ## Repository Statistics
@@ -37,7 +38,7 @@ function formatRepoAnalysis(repoInfo, analysis, userMemory) {
 - **Forks:** ${analysis.repoData.forks.toLocaleString()}
 - **Open Issues:** ${analysis.repoData.issues.toLocaleString()}
 - **Contributors:** ${analysis.repoData.contributors}
-- **Last Updated:** ${analysis.repoData.lastUpdated.toLocaleDateString()}
+- **Last Updated:** ${new Date(analysis.repoData.lastUpdated).toLocaleDateString()}
 
 ## Evaluation Scores
 - **Community Support:** ${analysis.communityScore.toFixed(1)}/100
@@ -128,9 +129,12 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("generate-response: Received request");
+
   try {
     // Get request body
     const { content, userId, userMemory } = await req.json();
+    console.log("Processing request for content:", content?.substring(0, 50) + "...");
     
     // Create Supabase client
     const supabaseAdmin = createClient(
@@ -140,18 +144,26 @@ serve(async (req) => {
     
     // Check if message contains a repository reference
     const repoInfo = extractRepoInfo(content);
+    console.log("Extracted repo info:", repoInfo);
     
     if (repoInfo) {
       try {
         // Invoke analyze-repo function
+        console.log(`Invoking analyze-repo for ${repoInfo.owner}/${repoInfo.repo}`);
         const { data: analysis, error } = await supabaseAdmin.functions.invoke("analyze-repo", {
           body: { owner: repoInfo.owner, repo: repoInfo.repo }
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error invoking analyze-repo:", error);
+          throw error;
+        }
+        
+        console.log("Analysis completed successfully");
         
         if (analysis && userId) {
           // Store this evaluation in database
+          console.log("Storing evaluation in database for user:", userId);
           const { error: dbError } = await supabaseAdmin
             .from('repo_analyses')
             .insert({
@@ -171,6 +183,8 @@ serve(async (req) => {
           
           if (dbError) {
             console.error("Error storing repo analysis:", dbError);
+          } else {
+            console.log("Evaluation stored successfully");
           }
         }
         
@@ -196,15 +210,20 @@ serve(async (req) => {
     if (content.toLowerCase().includes("react state") && 
         (content.toLowerCase().includes("library") || content.toLowerCase().includes("libraries"))) {
       
+      console.log("Processing request for React state management libraries");
       try {
         // Search for React state management libraries
         const { data: searchData, error } = await supabaseAdmin.functions.invoke("analyze-repo", {
           body: { searchQuery: "react state management library" }
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error searching repositories:", error);
+          throw error;
+        }
         
         if (searchData && searchData.searchResults && searchData.searchResults.length > 0) {
+          console.log(`Found ${searchData.searchResults.length} libraries`);
           const response = formatLibrariesSearch(searchData.searchResults, userMemory);
           
           return new Response(
@@ -222,7 +241,9 @@ serve(async (req) => {
         (content.toLowerCase().includes("evaluation") || content.toLowerCase().includes("repository") || 
          content.toLowerCase().includes("repo") || content.toLowerCase().includes("analyzed"))) {
       
+      console.log("Processing request for previous evaluations");
       if (userMemory && userMemory.repoEvaluations && userMemory.repoEvaluations.length > 0) {
+        console.log(`Found ${userMemory.repoEvaluations.length} previous evaluations`);
         const response = formatPreviousEvaluations(userMemory.repoEvaluations);
         
         return new Response(
@@ -230,6 +251,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       } else {
+        console.log("No previous evaluations found");
         return new Response(
           JSON.stringify({ 
             response: "I don't have any record of previously analyzed repositories. Let's analyze one now! Just mention a GitHub repository like 'owner/repo' in your message."
@@ -240,6 +262,7 @@ serve(async (req) => {
     }
     
     // Default response when no specific pattern is matched
+    console.log("No specific pattern matched, returning default response");
     return new Response(
       JSON.stringify({ response: getDefaultResponse() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
