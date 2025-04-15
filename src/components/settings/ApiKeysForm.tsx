@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,8 +10,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +20,13 @@ import githubService from '@/services/github';
 import pineconeService from '@/services/pinecone';
 import { API_KEYS } from '@/config/apiConfig';
 
+// Component imports
+import GithubApiSection from './GithubApiSection';
+import OpenAiSection from './OpenAiSection';
+import PineconeSection from './PineconeSection';
+import StatusIndicator from './StatusIndicator';
+
+// Form schema
 const formSchema = z.object({
   githubApiKey: z.string().min(1, 'GitHub API key is required'),
   pineconeApiKey: z.string().min(1, 'Pinecone API key is required'),
@@ -28,7 +36,8 @@ const formSchema = z.object({
   openaiApiKey: z.string().min(1, 'OpenAI API key is required for embeddings'),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+// Export type for use in the component props
+export type ApiFormValues = z.infer<typeof formSchema>;
 
 const ApiKeysForm: React.FC = () => {
   const { toast } = useToast();
@@ -38,7 +47,7 @@ const ApiKeysForm: React.FC = () => {
     openai: false,
   });
 
-  const form = useForm<FormValues>({
+  const form = useForm<ApiFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       githubApiKey: '',
@@ -68,7 +77,7 @@ const ApiKeysForm: React.FC = () => {
 
     if (savedGithubKey) {
       form.setValue('githubApiKey', savedGithubKey);
-      githubService.setApiKey();  // No arguments needed
+      githubService.setApiKey();
       setIsConfigured(prev => ({ ...prev, github: true }));
     }
 
@@ -78,7 +87,6 @@ const ApiKeysForm: React.FC = () => {
       form.setValue('pineconeIndex', savedPineconeIndex);
       form.setValue('pineconeProjectId', savedPineconeProjectId);
       
-      // We don't need to call configure as it doesn't exist anymore
       setIsConfigured(prev => ({ ...prev, pinecone: true }));
     }
     
@@ -88,15 +96,15 @@ const ApiKeysForm: React.FC = () => {
     }
   }, [form]);
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: ApiFormValues) => {
     try {
       // Save GitHub API key
       localStorage.setItem('anarepo_github_api_key', values.githubApiKey);
-      githubService.setApiKey();  // No arguments needed
+      githubService.setApiKey();
       setIsConfigured(prev => ({ ...prev, github: true }));
 
       // Test GitHub API connection
-      const testRepo = await githubService.getRepoData();  // No arguments needed
+      const testRepo = await githubService.getRepoData();
       if (!testRepo) {
         toast({
           variant: 'destructive',
@@ -117,7 +125,6 @@ const ApiKeysForm: React.FC = () => {
       localStorage.setItem('anarepo_pinecone_index', values.pineconeIndex);
       localStorage.setItem('anarepo_pinecone_project_id', values.pineconeProjectId);
       
-      // We don't call configure anymore since it doesn't exist
       setIsConfigured(prev => ({ ...prev, pinecone: true }));
 
       toast({
@@ -139,156 +146,28 @@ const ApiKeysForm: React.FC = () => {
       <h2 className="text-2xl font-bold mb-4">API Configuration</h2>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold">GitHub API</h3>
-            <FormField
-              control={form.control}
-              name="githubApiKey"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>GitHub API Key</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your GitHub API key"
-                      type="password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Personal access token with repo scope to access GitHub API
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="border-t pt-4">
-              <h3 className="text-xl font-semibold">OpenAI (for Embeddings)</h3>
-              <FormField
-                control={form.control}
-                name="openaiApiKey"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>OpenAI API Key</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter your OpenAI API key"
-                        type="password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Used for creating embeddings for vector storage
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="border-t pt-4">
-              <h3 className="text-xl font-semibold">Pinecone Vector Database</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Required for persistent memory across sessions. Create a free account at{' '}
-                <a 
-                  href="https://www.pinecone.io/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  pinecone.io
-                </a>
-              </p>
-            </div>
-            
-            <FormField
-              control={form.control}
-              name="pineconeApiKey"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pinecone API Key</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your Pinecone API key"
-                      type="password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="pineconeEnvironment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pinecone Environment</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., gcp-starter"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="pineconeIndex"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pinecone Index Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., anarepo-index"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="pineconeProjectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pinecone Project ID</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your Pinecone project ID"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Optional for some Pinecone plans
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          <GithubApiSection 
+            form={form} 
+            isConfigured={isConfigured.github} 
+          />
           
-          <Button type="submit" className="w-full">
+          <Separator className="my-4" />
+          
+          <OpenAiSection 
+            form={form} 
+            isConfigured={isConfigured.openai} 
+          />
+          
+          <Separator className="my-4" />
+          
+          <PineconeSection 
+            form={form} 
+            isConfigured={isConfigured.pinecone} 
+          />
+          
+          <Button type="submit" className="w-full mt-6">
             Save API Keys
           </Button>
-          
-          <div className="flex flex-col gap-2 text-center text-sm">
-            <p>
-              GitHub API: {isConfigured.github ? '✅ Configured' : '❌ Not configured'}
-            </p>
-            <p>
-              OpenAI: {isConfigured.openai ? '✅ Configured' : '❌ Not configured'}
-            </p>
-            <p>
-              Pinecone: {isConfigured.pinecone ? '✅ Configured' : '❌ Not configured'}
-            </p>
-          </div>
         </form>
       </Form>
     </Card>
