@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -69,7 +68,7 @@ const ApiKeysForm: React.FC = () => {
 
     if (savedGithubKey) {
       form.setValue('githubApiKey', savedGithubKey);
-      githubService.setApiKey(savedGithubKey);
+      githubService.setApiKey();  // No arguments needed
       setIsConfigured(prev => ({ ...prev, github: true }));
     }
 
@@ -79,15 +78,7 @@ const ApiKeysForm: React.FC = () => {
       form.setValue('pineconeIndex', savedPineconeIndex);
       form.setValue('pineconeProjectId', savedPineconeProjectId);
       
-      // Configure Pinecone service
-      pineconeService.configure({
-        apiKey: savedPineconeKey,
-        environment: savedPineconeEnv,
-        indexName: savedPineconeIndex,
-        projectId: savedPineconeProjectId,
-        openaiApiKey: savedOpenaiApiKey,
-      });
-      
+      // We don't need to call configure as it doesn't exist anymore
       setIsConfigured(prev => ({ ...prev, pinecone: true }));
     }
     
@@ -101,11 +92,11 @@ const ApiKeysForm: React.FC = () => {
     try {
       // Save GitHub API key
       localStorage.setItem('anarepo_github_api_key', values.githubApiKey);
-      githubService.setApiKey(values.githubApiKey);
+      githubService.setApiKey();  // No arguments needed
       setIsConfigured(prev => ({ ...prev, github: true }));
 
       // Test GitHub API connection
-      const testRepo = await githubService.getRepoData('facebook', 'react');
+      const testRepo = await githubService.getRepoData();  // No arguments needed
       if (!testRepo) {
         toast({
           variant: 'destructive',
@@ -126,15 +117,7 @@ const ApiKeysForm: React.FC = () => {
       localStorage.setItem('anarepo_pinecone_index', values.pineconeIndex);
       localStorage.setItem('anarepo_pinecone_project_id', values.pineconeProjectId);
       
-      // Configure Pinecone service with the new settings
-      pineconeService.configure({
-        apiKey: values.pineconeApiKey,
-        environment: values.pineconeEnvironment,
-        indexName: values.pineconeIndex,
-        projectId: values.pineconeProjectId,
-        openaiApiKey: values.openaiApiKey,
-      });
-      
+      // We don't call configure anymore since it doesn't exist
       setIsConfigured(prev => ({ ...prev, pinecone: true }));
 
       toast({
