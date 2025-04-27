@@ -38,6 +38,15 @@ const githubService = {
       
       if (!data) throw new Error("No data returned from the server");
       
+      // If there's an error in the response
+      if (data.error) {
+        if (data.errorType === "NOT_FOUND") {
+          throw new Error(`Repository ${owner}/${repo} not found`);
+        } else {
+          throw new Error(data.error);
+        }
+      }
+      
       // Store the analysis in the database for authenticated users
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData.session?.user) {
@@ -80,6 +89,8 @@ const githubService = {
       if (error) throw error;
       
       if (!data || !data.searchResults) throw new Error("No search results returned");
+      
+      if (data.error) throw new Error(data.error);
       
       return data.searchResults;
     } catch (error: any) {

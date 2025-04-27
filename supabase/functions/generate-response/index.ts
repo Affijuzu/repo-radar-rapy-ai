@@ -159,6 +159,32 @@ serve(async (req) => {
           throw error;
         }
         
+        // Check if the response contains an error
+        if (analysis && analysis.error) {
+          console.log("Repository analysis error:", analysis.error);
+          
+          // Return appropriate error message
+          if (analysis.errorType === "NOT_FOUND") {
+            return new Response(
+              JSON.stringify({ 
+                response: `I couldn't find the repository "${repoInfo.owner}/${repoInfo.repo}". Please check that the repository exists and the owner/repo name is correct.`,
+                error: analysis.error,
+                errorType: analysis.errorType
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          } else {
+            return new Response(
+              JSON.stringify({ 
+                response: `I encountered an error while analyzing the repository: ${analysis.error}`,
+                error: analysis.error,
+                errorType: analysis.errorType
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+        
         console.log("Analysis completed successfully");
         
         if (analysis && userId) {
@@ -199,7 +225,8 @@ serve(async (req) => {
         console.error("Failed to analyze repository", e);
         return new Response(
           JSON.stringify({ 
-            response: "I encountered an error while analyzing this repository. Please try again or check if the repository exists."
+            response: `I encountered an error while analyzing the repository "${repoInfo.owner}/${repoInfo.repo}". ${e.message}`,
+            error: e.message
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

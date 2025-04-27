@@ -32,6 +32,11 @@ export const generateResponse = async (content: string, user: User | null, userM
       return "I'm sorry, I didn't understand that request. Could you please rephrase?";
     }
 
+    // Check if there's an error message indicating invalid repository
+    if (data.error && data.errorType === "NOT_FOUND") {
+      return "I couldn't find that repository. Please check that the repository exists and the owner/repo name is correct.";
+    }
+
     console.log("Response generated successfully");
     return data.response;
   } catch (e: any) {

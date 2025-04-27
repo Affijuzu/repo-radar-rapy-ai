@@ -8,6 +8,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// GitHub API token from environment variables
+const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN") || "";
+
 // Function to calculate scores
 function calculateScores(repoData: any) {
   // Community score based on stars and forks
@@ -41,70 +44,156 @@ function calculateScores(repoData: any) {
   };
 }
 
-// Mock GitHub API for demo (in a real app, we'd call the actual GitHub API)
+// Function to call GitHub API
 async function fetchRepoData(owner: string, repo: string) {
   console.log(`Fetching data for ${owner}/${repo}`);
   
   try {
-    // This is a mock implementation
-    // In production, you would use the GitHub API:
-    // const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
-    
-    // Generate realistic but random data
-    const now = new Date();
-    const repoData = {
-      stars: Math.floor(Math.random() * 50000) + 100,
-      forks: Math.floor(Math.random() * 5000) + 10,
-      issues: Math.floor(Math.random() * 500) + 5,
-      contributors: Math.floor(Math.random() * 100) + 2,
-      lastUpdated: new Date(now.setDate(now.getDate() - Math.floor(Math.random() * 60))),
-      commitFrequency: Math.random() * 10 + 0.2, // commits per day
-      hasReadme: Math.random() > 0.1, // 90% have README
-      hasContributing: Math.random() > 0.5, // 50% have CONTRIBUTING
-      hasIssueTemplates: Math.random() > 0.4, // 60% have issue templates
+    // Create headers with authorization if token is available
+    const headers: Record<string, string> = {
+      "Accept": "application/vnd.github.v3+json",
+      "User-Agent": "Rapy-Repository-Analyzer",
     };
     
-    console.log("Generated repo data:", JSON.stringify(repoData));
-    return repoData;
+    if (GITHUB_TOKEN) {
+      headers["Authorization"] = `token ${GITHUB_TOKEN}`;
+    }
+    
+    // Fetch main repository data
+    const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+    
+    if (!repoResponse.ok) {
+      if (repoResponse.status === 404) {
+        throw new Error("Repository not found");
+      }
+      throw new Error(`GitHub API error: ${repoResponse.status}`);
+    }
+    
+    const repoData = await repoResponse.json();
+    
+    if (!repoData) {
+      throw new Error("No repository data returned");
+    }
+    
+    // Fetch contributors
+    const contributorsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contributors?per_page=1&anon=true`, { headers });
+    const contributorsData = await contributorsResponse.json();
+    let contributors = 0;
+    
+    if (contributorsResponse.ok && Array.isArray(contributorsData)) {
+      // Get total from the Link header if available
+      const linkHeader = contributorsResponse.headers.get("Link");
+      if (linkHeader) {
+        const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+        if (match && match[1]) {
+          contributors = parseInt(match[1], 10);
+        } else {
+          contributors = contributorsData.length;
+        }
+      } else {
+        contributors = contributorsData.length;
+      }
+    }
+    
+    // Fetch commits to calculate frequency
+    const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=100`, { headers });
+    let commitFrequency = 0;
+    
+    if (commitsResponse.ok) {
+      const commitsData = await commitsResponse.json();
+      
+      if (Array.isArray(commitsData) && commitsData.length > 1) {
+        // Calculate average commits per day based on available data
+        const firstCommitDate = new Date(commitsData[commitsData.length - 1].commit.author.date);
+        const lastCommitDate = new Date(commitsData[0].commit.author.date);
+        const daysDiff = Math.max(1, (lastCommitDate.getTime() - firstCommitDate.getTime()) / (1000 * 60 * 60 * 24));
+        commitFrequency = commitsData.length / daysDiff;
+      }
+    }
+    
+    // Check for README, CONTRIBUTING, and issue templates
+    const contentsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`, { headers });
+    const contentsData = await contentsResponse.json();
+    
+    let hasReadme = false;
+    let hasContributing = false;
+    
+    if (contentsResponse.ok && Array.isArray(contentsData)) {
+      hasReadme = contentsData.some(file => 
+        file.name.toLowerCase() === 'readme.md' || file.name.toLowerCase() === 'readme'
+      );
+      
+      hasContributing = contentsData.some(file => 
+        file.name.toLowerCase() === 'contributing.md' || file.name.toLowerCase() === 'contributing'
+      );
+    }
+    
+    // Check for issue templates
+    const templatesResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/.github/ISSUE_TEMPLATE`, { headers });
+    const hasIssueTemplates = templatesResponse.ok;
+    
+    // Build the repository data object
+    return {
+      stars: repoData.stargazers_count || 0,
+      forks: repoData.forks_count || 0,
+      issues: repoData.open_issues_count || 0,
+      contributors: contributors || 0,
+      lastUpdated: new Date(repoData.updated_at || Date.now()),
+      commitFrequency: commitFrequency || 0.1,
+      hasReadme: hasReadme,
+      hasContributing: hasContributing,
+      hasIssueTemplates: hasIssueTemplates
+    };
   } catch (error) {
     console.error("Error fetching repo data:", error);
     throw error;
   }
 }
 
-// Mock GitHub search API
+// Real GitHub search API
 async function searchRepositories(query: string) {
   console.log(`Searching for repositories with query: ${query}`);
   
   try {
-    // This would normally call the GitHub search API
-    // const response = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}`);
+    // Create headers with authorization if token is available
+    const headers: Record<string, string> = {
+      "Accept": "application/vnd.github.v3+json",
+      "User-Agent": "Rapy-Repository-Analyzer"
+    };
     
-    const repositories = [];
-    const count = 5; // Return 5 repositories
-    
-    for (let i = 0; i < count; i++) {
-      const repoNames = [
-        "redux", "recoil", "mobx", "zustand", "jotai", "valtio", "xstate"
-      ];
-      const owners = [
-        "facebook", "pmndrs", "mobxjs", "reduxjs", "statelyai"
-      ];
-      
-      repositories.push({
-        name: repoNames[i % repoNames.length],
-        owner: owners[i % owners.length],
-        stars: Math.floor(Math.random() * 50000) + 1000,
-        forks: Math.floor(Math.random() * 5000) + 100,
-        issues: Math.floor(Math.random() * 300) + 10,
-        url: `https://github.com/${owners[i % owners.length]}/${repoNames[i % repoNames.length]}`,
-        description: `A state management library for ${query.includes("react") ? "React" : "JavaScript"} applications`
-      });
+    if (GITHUB_TOKEN) {
+      headers["Authorization"] = `token ${GITHUB_TOKEN}`;
     }
     
+    // Call the GitHub search API
+    const response = await fetch(
+      `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=5`, 
+      { headers }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data || !Array.isArray(data.items)) {
+      throw new Error("Invalid response from GitHub API");
+    }
+    
+    // Map the results to our format
+    const repositories = data.items.map((item: any) => ({
+      name: item.name,
+      owner: item.owner.login,
+      stars: item.stargazers_count,
+      forks: item.forks_count,
+      issues: item.open_issues_count,
+      url: item.html_url,
+      description: item.description || "No description available"
+    }));
+    
     console.log(`Found ${repositories.length} repositories`);
-    // Sort by stars
-    return repositories.sort((a, b) => b.stars - a.stars);
+    return repositories;
   } catch (error) {
     console.error("Error searching repositories:", error);
     throw error;
@@ -167,9 +256,12 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "An unknown error occurred" }),
+      JSON.stringify({ 
+        error: error.message || "An unknown error occurred",
+        errorType: error.message === "Repository not found" ? "NOT_FOUND" : "API_ERROR"
+      }),
       {
-        status: 500,
+        status: error.message === "Repository not found" ? 404 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
