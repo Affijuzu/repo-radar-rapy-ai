@@ -30,19 +30,29 @@ const githubService = {
 
   analyzeRepo: async (owner: string, repo: string): Promise<RepoAnalysis> => {
     try {
+      console.log(`Analyzing repository: ${owner}/${repo}`);
       const { data, error } = await supabase.functions.invoke('analyze-repo', {
         body: { owner, repo }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw new Error(`Failed to analyze repository: ${error.message}`);
+      }
       
       if (!data) throw new Error("No data returned from the server");
       
       // If there's an error in the response
       if (data.error) {
         if (data.errorType === "NOT_FOUND") {
+          toast.error("Repository not found", {
+            description: `The repository ${owner}/${repo} does not exist or is private`
+          });
           throw new Error(`Repository ${owner}/${repo} not found`);
         } else {
+          toast.error("GitHub API error", {
+            description: data.error
+          });
           throw new Error(data.error);
         }
       }

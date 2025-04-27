@@ -33,8 +33,18 @@ export const generateResponse = async (content: string, user: User | null, userM
     }
 
     // Check if there's an error message indicating invalid repository
-    if (data.error && data.errorType === "NOT_FOUND") {
-      return "I couldn't find that repository. Please check that the repository exists and the owner/repo name is correct.";
+    if (data.error) {
+      if (data.errorType === "NOT_FOUND") {
+        toast.error("Repository not found", {
+          description: "The repository doesn't exist or is private"
+        });
+        return "I couldn't find that repository. Please check that the repository exists, is public, and the owner/repo name is correct.";
+      } else {
+        toast.error("GitHub API error", {
+          description: data.error
+        });
+        return `I encountered an error while analyzing the repository: ${data.error}`;
+      }
     }
 
     console.log("Response generated successfully");
