@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types/auth";
 import { toast } from "sonner";
+import { langchainService } from "./langchainService";
 
 /**
  * Generate response based on user input
@@ -10,7 +11,12 @@ export const generateResponse = async (content: string, user: User | null, userM
   try {
     console.log("Generating response for:", content);
     
-    // Call the generate-response edge function
+    if (content.toLowerCase().includes('analyze') && content.toLowerCase().includes('github.com')) {
+      // Use LangChain for repository analysis
+      return await langchainService.analyzeRepositoryWithLangChain(content, user);
+    }
+    
+    // For other types of queries, use the regular generate-response function
     const { data, error } = await supabase.functions.invoke('generate-response', {
       body: {
         content,
