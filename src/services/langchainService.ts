@@ -1,12 +1,12 @@
 
 import { ChatOpenAI } from '@langchain/openai';
-import { PromptTemplate } from 'langchain/prompts';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types/auth';
 import { toast } from 'sonner';
 
 export const langchainService = {
-  analyzeRepositoryWithLangChain: async (content: string, user: User | null) => {
+  analyzeRepositoryWithLangChain: async (content: string, user: User | null): Promise<string> => {
     try {
       console.log("Analyzing repository with LangChain:", content);
       
@@ -26,7 +26,7 @@ export const langchainService = {
       });
 
       // Create a template for analyzing repository data
-      const template = `
+      const template = ChatPromptTemplate.fromTemplate(`
       Analyze this GitHub repository data and provide insights:
       Stars: {stars}
       Forks: {forks}
@@ -43,12 +43,10 @@ export const langchainService = {
       2. Documentation quality
       3. Project activity and maintenance
       4. Overall recommendation
-      `;
-
-      const promptTemplate = PromptTemplate.fromTemplate(template);
+      `);
 
       // Format the prompt with repository data
-      const formattedPrompt = await promptTemplate.format({
+      const formattedPrompt = await template.format({
         stars: repoData.repoData.stars,
         forks: repoData.repoData.forks,
         issues: repoData.repoData.issues,
@@ -64,7 +62,7 @@ export const langchainService = {
       const response = await chat.invoke(formattedPrompt);
 
       console.log("LangChain analysis completed");
-      return response;
+      return response.content;
 
     } catch (e: any) {
       console.error("Failed to analyze with LangChain:", e);
