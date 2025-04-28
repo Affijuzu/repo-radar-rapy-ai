@@ -22,7 +22,7 @@ export const langchainService = {
 
       // Initialize ChatOpenAI with the API key from edge function
       const chat = new ChatOpenAI({
-        modelName: "gpt-4o-mini", // Using the more cost-effective model
+        modelName: "gpt-4o-mini", // Using a more cost-effective model
         temperature: 0.7,
       });
 
@@ -63,7 +63,19 @@ export const langchainService = {
       const response = await chat.invoke(formattedPrompt);
 
       console.log("LangChain analysis completed");
-      return response.text || response.content || "Analysis completed but no response content available.";
+      
+      // Handle different response formats safely
+      if (typeof response === 'string') {
+        return response;
+      } else if (response && typeof response === 'object') {
+        if ('text' in response) {
+          return response.text as string;
+        } else if ('content' in response) {
+          return response.content as string;
+        }
+      }
+      
+      return "Analysis completed but no response content available.";
 
     } catch (e: any) {
       console.error("Failed to analyze with LangChain:", e);
