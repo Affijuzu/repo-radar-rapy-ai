@@ -10,8 +10,10 @@ export const generateResponse = async (content, user, userMemory) => {
   try {
     console.log("Generating response for:", content);
     
-    if (content.toLowerCase().includes('analyze') && content.toLowerCase().includes('github.com')) {
-      // Use our service for repository analysis
+    // Check if the message contains a GitHub repository URL
+    if (content.toLowerCase().includes('github.com/')) {
+      console.log("Detected GitHub repository URL, using langchainService");
+      // Use our specialized service for repository analysis
       return await langchainService.analyzeRepositoryWithLangChain(content, user);
     }
     
