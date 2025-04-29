@@ -162,6 +162,21 @@ export type Database = {
           },
         ]
       }
+      secrets: {
+        Row: {
+          id: number
+          openai_api_key: string | null
+        }
+        Insert: {
+          id?: number
+          openai_api_key?: string | null
+        }
+        Update: {
+          id?: number
+          openai_api_key?: string | null
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           created_at: string
