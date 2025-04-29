@@ -8,19 +8,33 @@ export const langchainService = {
       console.log("Analyzing repository:", content);
       
       // Extract owner and repo from URL or text
-      const repoPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/i;
-      const match = content.match(repoPattern);
+      // Support both github.com URLs and owner/repo format
+      let owner, repo;
       
-      if (!match || match.length < 3) {
+      // Check for GitHub URL format
+      const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/i;
+      const urlMatch = content.match(urlPattern);
+      
+      // Check for owner/repo format
+      const shortPattern = /([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/i;
+      const shortMatch = content.match(shortPattern);
+      
+      if (urlMatch && urlMatch.length >= 3) {
+        owner = urlMatch[1];
+        repo = urlMatch[2].replace(/\.git$/, ''); // Remove .git if present
+      } else if (shortMatch && shortMatch.length >= 3) {
+        owner = shortMatch[1];
+        repo = shortMatch[2].replace(/\.git$/, ''); // Remove .git if present
+      } else {
         console.error("Could not extract repository information from:", content);
-        toast.error("Invalid repository URL", {
-          description: "Please provide a valid GitHub repository URL"
+        toast.error("Invalid repository format", {
+          description: "Please provide a valid GitHub repository in the format 'owner/repo' or as a URL"
         });
-        return "I couldn't parse the GitHub repository URL. Please provide it in the format 'https://github.com/owner/repo'.";
+        return "I couldn't parse the GitHub repository information. Please provide it in the format 'owner/repo' or as a GitHub URL like 'https://github.com/owner/repo'.";
       }
       
-      const owner = match[1];
-      const repo = match[2];
+      // Clean up repo name - remove query params or hash if present
+      repo = repo.split(/[?#]/)[0];
       
       console.log(`Extracted repo details: ${owner}/${repo}`);
       

@@ -49,6 +49,10 @@ async function fetchRepoData(owner, repo) {
   console.log(`Fetching data for ${owner}/${repo}`);
   
   try {
+    // Clean up owner and repo names
+    owner = owner.trim();
+    repo = repo.trim().replace(/\.git$/, ''); // Remove .git if present
+    
     // Create headers with authorization if token is available
     const headers = {
       "Accept": "application/vnd.github.v3+json",
@@ -57,6 +61,20 @@ async function fetchRepoData(owner, repo) {
     
     if (GITHUB_TOKEN) {
       headers["Authorization"] = `token ${GITHUB_TOKEN}`;
+    }
+    
+    // First check if repository exists
+    console.log(`Checking if repository ${owner}/${repo} exists`);
+    const checkResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { 
+      headers,
+      method: "HEAD" 
+    });
+    
+    if (!checkResponse.ok) {
+      if (checkResponse.status === 404) {
+        throw new Error("Repository not found");
+      }
+      throw new Error(`GitHub API error: ${checkResponse.status}`);
     }
     
     // Fetch main repository data
@@ -215,12 +233,13 @@ serve(async (req) => {
     
     // If content is provided, extract repo info from it
     if (content) {
-      const repoPattern = /(?:github\.com\/)?([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)/i;
+      // Try to extract GitHub repository information from the content
+      const repoPattern = /(?:github\.com\/)?([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/i;
       const match = content.match(repoPattern);
       
       if (match && match.length >= 3) {
         const extractedOwner = match[1];
-        const extractedRepo = match[2];
+        const extractedRepo = match[2].replace(/\.git$/, '').split(/[?#]/)[0]; // Remove .git and query params if present
         
         // Fetch repository data
         console.log(`Analyzing repo from content: ${extractedOwner}/${extractedRepo}`);

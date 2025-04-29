@@ -17,8 +17,16 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLatest }) => {
   const isUser = message.role === 'user';
   
+  // Helper function to determine if content is an error message
+  const isErrorMessage = (content: string) => {
+    return content.includes("Error") || 
+           content.includes("error") || 
+           content.includes("couldn't find") || 
+           content.includes("failed");
+  };
+  
   // Custom renderer for repository analysis
-  const renderRepoAnalysis = (content) => {
+  const renderRepoAnalysis = (content: string) => {
     if (content.startsWith('Analysis of')) {
       return (
         <div className="repo-analysis">
@@ -63,7 +71,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLatest }) => {
       
       <Card className={cn(
         "max-w-[85%] shadow-sm",
-        isUser ? "bg-primary text-primary-foreground" : ""
+        isUser ? "bg-primary text-primary-foreground" : "",
+        isErrorMessage(message.content) && !isUser ? "border-red-300" : ""
       )}>
         <CardContent className={cn("p-3", !isUser && "prose prose-sm dark:prose-invert")}>
           {isUser ? (
