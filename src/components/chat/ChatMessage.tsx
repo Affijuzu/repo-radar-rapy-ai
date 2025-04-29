@@ -17,6 +17,34 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLatest }) => {
   const isUser = message.role === 'user';
   
+  // Custom renderer for repository analysis
+  const renderRepoAnalysis = (content) => {
+    if (content.startsWith('Analysis of')) {
+      return (
+        <div className="repo-analysis">
+          {content.split('\n').map((line, index) => {
+            if (line.includes('✅ Present')) {
+              return (
+                <div key={index}>
+                  {line.split('✅ Present')[0]} <span className="text-green-500">✅ Present</span>
+                </div>
+              );
+            } else if (line.includes('❌ Missing')) {
+              return (
+                <div key={index}>
+                  {line.split('❌ Missing')[0]} <span className="text-red-500">❌ Missing</span>
+                </div>
+              );
+            } else {
+              return <div key={index}>{line}</div>;
+            }
+          })}
+        </div>
+      );
+    }
+    return null;
+  };
+  
   return (
     <div className={cn(
       "flex gap-3",
@@ -41,30 +69,34 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLatest }) => {
           {isUser ? (
             <p className="whitespace-pre-wrap">{message.content}</p>
           ) : (
-            <Markdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code(props) {
-                  const {children, className, node, ...rest} = props;
-                  const match = /language-(\w+)/.exec(className || '');
-                  return match ? (
-                    <SyntaxHighlighter
-                      {...rest}
-                      language={match[1]}
-                      style={vscDarkPlus}
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code {...rest} className={className}>
-                      {children}
-                    </code>
-                  );
-                }
-              }}
-            >
-              {message.content}
-            </Markdown>
+            <>
+              {renderRepoAnalysis(message.content) || (
+                <Markdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code(props) {
+                      const {children, className, node, ...rest} = props;
+                      const match = /language-(\w+)/.exec(className || '');
+                      return match ? (
+                        <SyntaxHighlighter
+                          {...rest}
+                          language={match[1]}
+                          style={vscDarkPlus}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code {...rest} className={className}>
+                          {children}
+                        </code>
+                      );
+                    }
+                  }}
+                >
+                  {message.content}
+                </Markdown>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

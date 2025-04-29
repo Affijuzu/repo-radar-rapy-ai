@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
@@ -31,34 +30,29 @@ function getDefaultResponse() {
 // Function to format repository analysis as markdown
 function formatRepoAnalysis(repoInfo, analysis, userMemory) {
   console.log("Formatting repo analysis for", repoInfo.owner + "/" + repoInfo.repo);
-  return `# Analysis of ${repoInfo.owner}/${repoInfo.repo}
-
-## Repository Statistics
-- **Stars:** ${analysis.repoData.stars.toLocaleString()}
-- **Forks:** ${analysis.repoData.forks.toLocaleString()}
-- **Open Issues:** ${analysis.repoData.issues.toLocaleString()}
-- **Contributors:** ${analysis.repoData.contributors}
-- **Last Updated:** ${new Date(analysis.repoData.lastUpdated).toLocaleDateString()}
-
-## Evaluation Scores
-- **Community Support:** ${analysis.communityScore.toFixed(1)}/100
-- **Documentation Quality:** ${analysis.docQualityScore.toFixed(1)}/100
-- **Activity Level:** ${analysis.activityScore.toFixed(1)}/100
-- **Overall Score:** ${analysis.overallScore.toFixed(1)}/100
-
-## Documentation
-- README: ${analysis.repoData.hasReadme ? '✅ Present' : '❌ Missing'}
-- Contributing Guidelines: ${analysis.repoData.hasContributing ? '✅ Present' : '❌ Missing'}
-- Issue Templates: ${analysis.repoData.hasIssueTemplates ? '✅ Present' : '❌ Missing'}
-
-## Analysis Summary
+  return `Analysis of ${repoInfo.owner}/${repoInfo.repo}
+Repository Statistics
+Stars: ${analysis.repoData.stars.toLocaleString()}
+Forks: ${analysis.repoData.forks.toLocaleString()}
+Open Issues: ${analysis.repoData.issues.toLocaleString()}
+Contributors: ${analysis.repoData.contributors}
+Last Updated: ${new Date(analysis.repoData.lastUpdated).toLocaleDateString()}
+Evaluation Scores
+Community Support: ${analysis.communityScore.toFixed(1)}/100
+Documentation Quality: ${analysis.docQualityScore.toFixed(1)}/100
+Activity Level: ${analysis.activityScore.toFixed(1)}/100
+Overall Score: ${analysis.overallScore.toFixed(1)}/100
+Documentation
+README: ${analysis.repoData.hasReadme ? '✅ Present' : '❌ Missing'}
+Contributing Guidelines: ${analysis.repoData.hasContributing ? '✅ Present' : '❌ Missing'}
+Issue Templates: ${analysis.repoData.hasIssueTemplates ? '✅ Present' : '❌ Missing'}
+Analysis Summary
 ${analysis.overallScore > 80 ? 'This is an excellent repository with strong community support and documentation.' :
   analysis.overallScore > 60 ? 'This is a good repository with decent community support.' :
   analysis.overallScore > 40 ? 'This repository has some challenges but may still be useful depending on your needs.' :
   'This repository shows signs of low activity or limited documentation. Consider alternative options.'}
-
 ${userMemory?.repoEvaluations?.length > 0 ? 
-  '\n## Comparison with Previously Evaluated Repos\n' + 
+  'Comparison with Previously Evaluated Repos\n' + 
   compareWithPreviousEvaluations(analysis, userMemory.repoEvaluations) : ''}`;
 }
 

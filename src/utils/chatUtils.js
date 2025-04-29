@@ -1,4 +1,3 @@
-
 import { toast as showToast } from 'sonner';
 import githubService from '@/services/github';
 import pineconeService from '@/services/pinecone';
@@ -81,34 +80,29 @@ export const storeRepoEvaluation = async (user, repoInfo, analysis) => {
  * Format repository analysis as markdown
  */
 export const formatRepoAnalysis = (repoInfo, analysis, userMemory) => {
-  return `# Analysis of ${repoInfo.owner}/${repoInfo.repo}
-
-## Repository Statistics
-- **Stars:** ${analysis.repoData.stars.toLocaleString()}
-- **Forks:** ${analysis.repoData.forks.toLocaleString()}
-- **Open Issues:** ${analysis.repoData.issues.toLocaleString()}
-- **Contributors:** ${analysis.repoData.contributors}
-- **Last Updated:** ${analysis.repoData.lastUpdated.toLocaleDateString()}
-
-## Evaluation Scores
-- **Community Support:** ${analysis.communityScore.toFixed(1)}/100
-- **Documentation Quality:** ${analysis.docQualityScore.toFixed(1)}/100
-- **Activity Level:** ${analysis.activityScore.toFixed(1)}/100
-- **Overall Score:** ${analysis.overallScore.toFixed(1)}/100
-
-## Documentation
-- README: ${analysis.repoData.hasReadme ? '✅ Present' : '❌ Missing'}
-- Contributing Guidelines: ${analysis.repoData.hasContributing ? '✅ Present' : '❌ Missing'}
-- Issue Templates: ${analysis.repoData.hasIssueTemplates ? '✅ Present' : '❌ Missing'}
-
-## Analysis Summary
+  return `Analysis of ${repoInfo.owner}/${repoInfo.repo}
+Repository Statistics
+Stars: ${analysis.repoData.stars.toLocaleString()}
+Forks: ${analysis.repoData.forks.toLocaleString()}
+Open Issues: ${analysis.repoData.issues.toLocaleString()}
+Contributors: ${analysis.repoData.contributors}
+Last Updated: ${new Date(analysis.repoData.lastUpdated).toLocaleDateString()}
+Evaluation Scores
+Community Support: ${analysis.communityScore.toFixed(1)}/100
+Documentation Quality: ${analysis.docQualityScore.toFixed(1)}/100
+Activity Level: ${analysis.activityScore.toFixed(1)}/100
+Overall Score: ${analysis.overallScore.toFixed(1)}/100
+Documentation
+README: ${analysis.repoData.hasReadme ? '✅ Present' : '❌ Missing'}
+Contributing Guidelines: ${analysis.repoData.hasContributing ? '✅ Present' : '❌ Missing'}
+Issue Templates: ${analysis.repoData.hasIssueTemplates ? '✅ Present' : '❌ Missing'}
+Analysis Summary
 ${analysis.overallScore > 80 ? 'This is an excellent repository with strong community support and documentation.' :
   analysis.overallScore > 60 ? 'This is a good repository with decent community support.' :
   analysis.overallScore > 40 ? 'This repository has some challenges but may still be useful depending on your needs.' :
   'This repository shows signs of low activity or limited documentation. Consider alternative options.'}
-
 ${userMemory?.repoEvaluations?.length > 0 ? 
-  '\n## Comparison with Previously Evaluated Repos\n' + 
+  'Comparison with Previously Evaluated Repos\n' + 
   compareWithPreviousEvaluations(analysis, userMemory.repoEvaluations) : ''}`;
 };
 
