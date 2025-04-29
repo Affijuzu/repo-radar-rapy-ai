@@ -22,7 +22,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLatest }) => {
     return content.includes("Error") || 
            content.includes("error") || 
            content.includes("couldn't find") || 
-           content.includes("failed");
+           content.includes("failed") ||
+           content.includes("doesn't exist");
   };
   
   // Custom renderer for repository analysis
@@ -33,14 +34,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLatest }) => {
           {content.split('\n').map((line, index) => {
             if (line.includes('✅ Present')) {
               return (
-                <div key={index}>
-                  {line.split('✅ Present')[0]} <span className="text-green-500">✅ Present</span>
+                <div key={index} className="flex">
+                  <span className="flex-grow">{line.split('✅ Present')[0]}</span> 
+                  <span className="text-green-500 font-semibold">✅ Present</span>
                 </div>
               );
             } else if (line.includes('❌ Missing')) {
               return (
-                <div key={index}>
-                  {line.split('❌ Missing')[0]} <span className="text-red-500">❌ Missing</span>
+                <div key={index} className="flex">
+                  <span className="flex-grow">{line.split('❌ Missing')[0]}</span> 
+                  <span className="text-red-500 font-semibold">❌ Missing</span>
                 </div>
               );
             } else {

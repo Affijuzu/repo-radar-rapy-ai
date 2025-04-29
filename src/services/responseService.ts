@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types/auth";
 import { toast } from "sonner";
@@ -10,8 +11,11 @@ export const generateResponse = async (content: string, user: User | null, userM
   try {
     console.log("Generating response for:", content);
     
-    if (content.toLowerCase().includes('analyze') && content.toLowerCase().includes('github.com')) {
-      // Use LangChain for repository analysis
+    // Check if the message contains a GitHub repository URL or reference
+    if (content.toLowerCase().includes('github.com/') || 
+        /([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/.test(content)) {
+      console.log("Detected GitHub repository reference, using langchainService");
+      // Use our specialized service for repository analysis
       return await langchainService.analyzeRepositoryWithLangChain(content, user);
     }
     

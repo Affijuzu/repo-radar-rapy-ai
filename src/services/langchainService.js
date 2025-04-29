@@ -11,20 +11,24 @@ export const langchainService = {
       // Support both github.com URLs and owner/repo format
       let owner, repo;
       
-      // Check for GitHub URL format
+      // Check for GitHub URL format (with more flexible parsing)
       const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/i;
       const urlMatch = content.match(urlPattern);
       
       // Check for owner/repo format
-      const shortPattern = /([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/i;
+      const shortPattern = /(?:^|\s)([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)(?:\s|$)/i;
       const shortMatch = content.match(shortPattern);
       
       if (urlMatch && urlMatch.length >= 3) {
         owner = urlMatch[1];
         repo = urlMatch[2].replace(/\.git$/, ''); // Remove .git if present
+        // Clean up repo name - remove query params, hash, or other trailing characters
+        repo = repo.split(/[?#/]/)[0];
       } else if (shortMatch && shortMatch.length >= 3) {
         owner = shortMatch[1];
         repo = shortMatch[2].replace(/\.git$/, ''); // Remove .git if present
+        // Clean up repo name
+        repo = repo.split(/[?#/]/)[0];
       } else {
         console.error("Could not extract repository information from:", content);
         toast.error("Invalid repository format", {
@@ -33,12 +37,9 @@ export const langchainService = {
         return "I couldn't parse the GitHub repository information. Please provide it in the format 'owner/repo' or as a GitHub URL like 'https://github.com/owner/repo'.";
       }
       
-      // Clean up repo name - remove query params or hash if present
-      repo = repo.split(/[?#]/)[0];
-      
       console.log(`Extracted repo details: ${owner}/${repo}`);
       
-      // Call the GitHub service directly to avoid edge function issues
+      // Call the GitHub analysis function
       try {
         const { data: repoData, error: repoError } = await supabase.functions.invoke('analyze-repo', {
           body: { owner, repo }
@@ -58,7 +59,13 @@ export const langchainService = {
           toast.error(repoData.errorType === "NOT_FOUND" ? "Repository not found" : "GitHub API error", {
             description: repoData.error
           });
-          return `I couldn't find the repository "${owner}/${repo}". Please check that the repository exists, is public, and the owner/repo name is correct.`;
+          
+          // Suggest a corrected repo name if NOT_FOUND
+          if (repoData.errorType === "NOT_FOUND") {
+            return `I couldn't find the repository "${owner}/${repo}". Please check that the repository exists, is public, and the owner/repo name is correct. Make sure you spelled the repository name correctly.`;
+          }
+          
+          return `I encountered an error analyzing the repository: ${repoData.error}`;
         }
 
         if (!repoData) {
